@@ -134,3 +134,47 @@ class TagRecipe(models.Model):
 
     def __str__(self):
         return f'Тег: {self.recipe.name} slug: {self.tag.name}'
+
+
+class UserRecipe(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+    in_cart = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('user', 'recipe')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.recipe.name}"
+
+
+class Favorite(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('user', 'recipe')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.recipe.name}"
+
+
+from django.db import models
+import string
+import random
+
+
+class ShortLink(models.Model):
+    recipe = models.OneToOneField(Recipe, on_delete=models.CASCADE)
+    original_url = models.URLField()
+    short_url = models.CharField(max_length=10, unique=True)
+
+    def save(self, *args, **kwargs):
+        if not self.short_url:
+            self.short_url = self.generate_short_url()
+        super().save(*args, **kwargs)
+
+    def generate_short_url(self):
+        length = 8
+        characters = string.ascii_letters + string.digits
+        return ''.join(random.choice(characters) for _ in range(length))
