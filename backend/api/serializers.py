@@ -87,7 +87,8 @@ class IngredientsInRecipeSerializer(serializers.ModelSerializer):
                                         queryset=Ingredient.objects.all())
     measurement_unit = serializers.SlugRelatedField("measurement_unit",
                                                     source="ingredients",
-                                                    queryset=Ingredient.objects.all())
+                                                    queryset=
+                                                    Ingredient.objects.all())
 
     class Meta:
         model = IngredientsInRecipe
@@ -228,17 +229,20 @@ class RecipeSerializer(serializers.ModelSerializer):
         updated_authors_dict = {ba['ingredients'].id: ba
                                 for ba in new_authors
                                 if ba['ingredients'].id in old_authors_dict}
-        old_authors_set = set(old_authors_dict.keys()) - set(updated_authors_dict.keys())
+        old_authors_set = (set(old_authors_dict.keys()) -
+                           set(updated_authors_dict.keys()))
         updated_authors_dict = dict(filter(
             lambda kv: kv[1]['amount'] != old_authors_dict[kv[0]].amount and (
-                        kv[1]['amount'] is not
-                        None or old_authors_dict[kv[0]].amount is not None),
+                kv[1]['amount'] is not
+                None or old_authors_dict[kv[0]].amount is not None),
             updated_authors_dict.items()
         ))
         IngredientsInRecipe.objects.filter(recipe_id=instance.id,
-                                           ingredients_id__in=old_authors_set).delete()
+                                           ingredients_id__in=old_authors_set
+                                           ).delete()
         IngredientsInRecipe.objects.bulk_create([
-            IngredientsInRecipe(recipe_id=instance.id, **ba) for ba in new_authors_dict.values()
+            IngredientsInRecipe(recipe_id=instance.id, **ba)
+            for ba in new_authors_dict.values()
         ])
         IngredientsInRecipe.objects.bulk_update([
             IngredientsInRecipe(id=old_authors_dict[ba['ingredients'].id].id,
@@ -341,7 +345,8 @@ class SubscribeSerializer(serializers.Serializer):
 
     def get_recipes(self, value):
         if 'limit' in value:
-            items = Recipe.objects.filter(author_id=value['id'])[:int(value['limit'])]
+            items = Recipe.objects.filter(
+                author_id=value['id'])[:int(value['limit'])]
         else:
             items = Recipe.objects.filter(author_id=value['id'])
         ret_list = RecipeShortSerializer(items, many=True)

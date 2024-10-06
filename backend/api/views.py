@@ -230,8 +230,8 @@ class FavoriteViewSet(ModelViewSet):
     def create(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['recipes_id'])
         obj = Favorite.objects.filter(
-            Q(recipe_id=recipe.id) &
-            Q(user_id=self.request.user.id)).exists()
+            Q(recipe_id=recipe.id)
+            & Q(user_id=self.request.user.id)).exists()
         if recipe is not None and not obj:
             Favorite.objects.bulk_create([
                 Favorite(recipe=recipe, user=self.request.user)
@@ -247,9 +247,10 @@ class FavoriteViewSet(ModelViewSet):
     )
     def delete(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['recipes_id'])
-        favorite_obj = Favorite.objects.filter(recipe=recipe,
-                                               user=
-                                               self.request.user).first()
+        favorite_obj = Favorite.objects.filter(
+            recipe=recipe,
+            user=self.request.user
+            ).first()
         if favorite_obj is None:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -396,8 +397,8 @@ class RecipeViewSet(ModelViewSet):
     )
     def dowload(self, *args, **kwargs):
         shopping_card = {}
-        ur_objects = UserRecipe.objects.filter(user=
-                                               self.request.user)
+        ur_objects = UserRecipe.objects.filter(
+            user=self.request.user)
         for i in ur_objects:
             ing = ReadSerializer(i.recipe).data['ingredients']
             for j in ing:
