@@ -1,35 +1,27 @@
-import base64
-
 from django.http import HttpResponse
-from django.shortcuts import render, redirect
-from djoser import views as djoser_views
 from djoser.views import UserViewSet
-from users.models import User, Subscription
-from .models import (Tag, Ingredient, Recipe,
-                     UserRecipe, TagRecipe, Favorite,
-                     ShortLink)
 from django.shortcuts import get_object_or_404
-from .serializers import (UserSerializer, AvatarSerializer,
-                          TagSerializer, IngredientSerializer,
-                          RecipeSerializer, ReadSerializer,
-                          RecipeInShoppingCard, SubscribeSerializer,
-                          FavoriteSerializer, ShortLinkSerializer, ShortLinkSerializer11,
-                          )
-from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import (
-    AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly,
-)
-from rest_framework import viewsets, pagination
-from rest_framework import generics
-
-from rest_framework import status
-from rest_framework import filters, status, viewsets
-from rest_framework.response import Response
-import logging
-from .serializers import UserSerializer
-from rest_framework.viewsets import ModelViewSet as StdModelViewSet, ViewSet, GenericViewSet
-from .permissions import IsRegisteredBy, ReadOnly, OwnerOrReadOnly
 from django.db.models import Q
+from models import (Tag, Ingredient, Recipe,
+                    UserRecipe, TagRecipe, Favorite,
+                    ShortLink)
+from users.models import User, Subscription
+from permissions import IsRegisteredBy, ReadOnly
+from rest_framework import (pagination, status,
+                            viewsets, filters, mixins)
+from rest_framework.decorators import action
+from rest_framework.permissions import (
+    IsAuthenticated, IsAuthenticatedOrReadOnly,
+)
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet as StdModelViewSet
+from serializers import (AvatarSerializer,
+                         TagSerializer, IngredientSerializer,
+                         RecipeSerializer, ReadSerializer,
+                         RecipeInShoppingCard, SubscribeSerializer,
+                         FavoriteSerializer, ShortLinkSerializer11,
+                         )
+from serializers import UserSerializer
 
 
 class CustomPagination(pagination.PageNumberPagination):
@@ -112,12 +104,9 @@ class UserViewSet3(UserViewSet):
         pagination_class=CustomPagination,
     )
     def get_subscriptions(self, *args, **kwargs):
-        print(self.request.GET)
-        print(args)
-        print(kwargs)
-        Subscriptions_list = Subscription.objects.filter(user=self.request.user)
+        subscriptions_list = Subscription.objects.filter(user=self.request.user)
         use1r = []
-        for i in Subscriptions_list:
+        for i in subscriptions_list:
             new_user = UserSerializer(i.subscribed_to).data
             new_user['is_subscribed'] = True
             if 'recipes_limit' in self.request.GET:
@@ -127,23 +116,6 @@ class UserViewSet3(UserViewSet):
         result_page = paginator.paginate_queryset(use1r, self.request)
         serializer = SubscribeSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
-
-
-from rest_framework import viewsets, filters, mixins
-
-from .permissions import IsAdminOnly, ReadOnly
-
-
-class CRDViewSet(mixins.ListModelMixin,
-                 mixins.DestroyModelMixin,
-                 viewsets.GenericViewSet
-                 ):
-    """Миксин для вьюсетов Category и Genre."""
-
-    permission_classes = (ReadOnly,)
-    filter_backends = (filters.SearchFilter,)
-    search_fields = ('name',)
-    # lookup_field = 'slug'
 
 
 class TagView(viewsets.GenericViewSet):
@@ -182,7 +154,7 @@ class ShortLinkViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         base_url = request.build_absolute_uri('/')[:-1]
-        serializer.data[0]['short-link'] = f'{base_url}/s/{serializer.data[0]["short-link"]}'
+        serializer.data[0]['short-link'] = f'{base_url}:8000/s/{serializer.data[0]["short-link"]}'
         return Response({"short-link": serializer.data[0]['short-link']})
 
 
@@ -366,16 +338,8 @@ class RecipeViewSet(ModelViewSet):
     def get_serializer_class(self, action=None):
         if (action or self.action) in ('retrieve', 'list'):
             return ReadSerializer
-        # return WriteBookCreateAuthorSerializer
         return RecipeSerializer
 
-    # def perform_create(self, serializer):
-    #     self.object = serializer.save(registered_by=self.request.user)
-    #
-    # def create(self, request, *args, **kwargs):
-    #     super().create(request, *args, **kwargs)
-    #     serializer_class = self.get_serializer_class(action="retrieve")
-    #     return Response(serializer_class(instance=self.object).data)
     def create(self, *args, **kwargs):
         serializer = RecipeSerializer(
             data=self.request.data,
@@ -439,61 +403,3 @@ class RecipeViewSet(ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="file.txt"'
 
         return response
-
-
-
-
-
-    # def update(self, request, *args, **kwargs):
-    #     serializer = RecipeSerializer(
-    #         data=self.request.data,
-    #         partial=True
-    #     )
-    #     if serializer.is_valid():
-    #         self.object = serializer.save(author=self.request.user)
-    #         serializer_class = self.get_serializer_class(action="retrieve")
-    #         print(serializer.data)
-    #         return Response(serializer_class(instance=self.object).data,
-    #                         status=status.HTTP_201_CREATED)
-    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    # def update(self, *args, **kwargs):
-    #     serializer = RecipeSerializer(
-    #         data=self.request.data,
-    #         partial=True
-    #     )
-    #     if serializer.is_valid():
-    #         self.object = serializer.save(author=self.request.user)
-    #         serializer_class = self.get_serializer_class(action="retrieve")
-    #         print(serializer.data)
-    #         return Response(serializer_class(instance=self.object).data,
-    #                         status=status.HTTP_201_CREATED)
-    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# class TagView(viewsets.ModelViewSet):
-#     permission_classes = [AllowAny]
-#     serializer_class = TagSerializer
-#
-#     @action(
-#         detail=False,
-#         methods=['get'],
-#         serializer_class=TagSerializer,
-#     )
-#     def get_queryset(self, *args, **kwargs):
-#         print(kwargs)
-#         print(args)
-#         items = Tag.objects.all()
-#         print(items)
-#         print(type(items))
-#         serializer = TagSerializer(items, many=True)
-#         print(serializer)
-#         return list(serializer.data)
-#
-#     @action(
-#         detail=True,
-#         methods=['get'],
-#         serializer_class=TagSerializer,
-#     )
-#     def get_queryset(self):
-#         item = get_object_or_404(Tag, id=self.kwargs['pk'])
-#         return item

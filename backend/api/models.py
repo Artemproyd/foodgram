@@ -1,6 +1,7 @@
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.utils.text import slugify
+import random
+import string
 from users.models import User
 
 
@@ -157,11 +158,6 @@ class Favorite(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.recipe.name}"
-
-
-from django.db import models
-import string
-import random
 
 
 class ShortLink(models.Model):
