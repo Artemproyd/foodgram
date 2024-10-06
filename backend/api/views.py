@@ -8,7 +8,7 @@ from models import (Tag, Ingredient, Recipe,
 from users.models import User, Subscription
 from permissions import IsRegisteredBy, ReadOnly
 from rest_framework import (pagination, status,
-                            viewsets, filters, mixins)
+                            viewsets)
 from rest_framework.decorators import action
 from rest_framework.permissions import (
     IsAuthenticated, IsAuthenticatedOrReadOnly,
@@ -192,7 +192,7 @@ class IngredientsViewSet(viewsets.GenericViewSet):
 
 class ShoppingCartViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeInShoppingCard
-    permission_classes = [IsAuthenticated,]
+    permission_classes = [IsAuthenticated, ]
 
     def create(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['recipes_id'])
@@ -248,8 +248,8 @@ class FavoriteViewSet(ModelViewSet):
     def delete(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['recipes_id'])
         favorite_obj = Favorite.objects.filter(recipe=recipe,
-                                                user=self.request.user
-                                                ).first()
+                                               user=
+                                               self.request.user).first()
         if favorite_obj is None:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         else:
@@ -271,7 +271,7 @@ class SubscribeViewSet(ModelViewSet):
             Q(subscribed_to=user)
             & Q(user=self.request.user)).exists()
         if user is not None and obj is False and user != self.request.user:
-            a = Subscription.objects.create(
+            Subscription.objects.create(
                 subscribed_to=user,
                 user=self.request.user
             )
@@ -301,7 +301,7 @@ class SubscribeViewSet(ModelViewSet):
 class RecipeViewSet(ModelViewSet):
     model = Recipe
     pagination_class = CustomPagination
-    permission_classes = [IsAuthenticatedOrReadOnly,]
+    permission_classes = [IsAuthenticatedOrReadOnly, ]
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -392,11 +392,12 @@ class RecipeViewSet(ModelViewSet):
     @action(
         detail=False,
         url_path='download_shopping_cart',
-        permission_classes=[IsAuthenticated,]
+        permission_classes=[IsAuthenticated, ]
     )
     def dowload(self, *args, **kwargs):
         shopping_card = {}
-        ur_objects = UserRecipe.objects.filter(user=self.request.user)
+        ur_objects = UserRecipe.objects.filter(user=
+                                               self.request.user)
         for i in ur_objects:
             ing = ReadSerializer(i.recipe).data['ingredients']
             for j in ing:
@@ -408,7 +409,8 @@ class RecipeViewSet(ModelViewSet):
                     }
                 else:
                     shopping_card[j['id']]['amount'] += j['amount']
-        content = '\n'.join(f'{key}: {value}' for key, value in shopping_card.items())
+        content = '\n'.join(f'{key}: {value}'
+                            for key, value in shopping_card.items())
         response = HttpResponse(content, content_type='text/plain')
         response['Content-Disposition'] = 'attachment; filename="file.txt"'
 
