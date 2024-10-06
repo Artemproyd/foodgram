@@ -78,7 +78,8 @@ class UserViewSet3(UserViewSet):
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
             else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(serializer.errors,
+                                status=status.HTTP_400_BAD_REQUEST)
         else:
             user = request.user
             user.avatar.delete()
@@ -104,7 +105,8 @@ class UserViewSet3(UserViewSet):
         pagination_class=CustomPagination,
     )
     def get_subscriptions(self, *args, **kwargs):
-        subscriptions_list = Subscription.objects.filter(user=self.request.user)
+        subscriptions_list = Subscription.objects.filter(
+            user=self.request.user)
         use1r = []
         for i in subscriptions_list:
             new_user = UserSerializer(i.subscribed_to).data
@@ -133,10 +135,12 @@ class TagView(viewsets.GenericViewSet):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        return Response('Forbidden', status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response('Forbidden',
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def update(self, request, *args, **kwargs):
-        return Response('Forbidden', status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response('Forbidden',
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class ShortLinkViewSet(viewsets.ModelViewSet):
@@ -154,7 +158,8 @@ class ShortLinkViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         base_url = request.build_absolute_uri('/')[:-1]
-        serializer.data[0]['short-link'] = f'{base_url}:8000/s/{serializer.data[0]["short-link"]}'
+        serializer.data[0]['short-link'] = \
+            f'{base_url}:8000/s/{serializer.data[0]["short-link"]}'
         return Response({"short-link": serializer.data[0]['short-link']})
 
 
@@ -168,7 +173,8 @@ class IngredientsViewSet(viewsets.GenericViewSet):
             ingredient = get_object_or_404(Ingredient, id=kwargs['pk'])
             serializer = IngredientSerializer(ingredient)
         elif 'name' in request.GET:
-            ingredient = Ingredient.objects.filter(name__startswith=request.GET['name'])
+            ingredient = Ingredient.objects.filter(
+                name__startswith=request.GET['name'])
             serializer = IngredientSerializer(ingredient, many=True)
         else:
             ingredient = Ingredient.objects.all()
@@ -176,10 +182,12 @@ class IngredientsViewSet(viewsets.GenericViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
-        return Response('Forbidden', status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response('Forbidden',
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def update(self, request, *args, **kwargs):
-        return Response('Forbidden', status=status.HTTP_405_METHOD_NOT_ALLOWED)
+        return Response('Forbidden',
+                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class ShoppingCartViewSet(viewsets.ModelViewSet):
@@ -222,7 +230,8 @@ class FavoriteViewSet(ModelViewSet):
     def create(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['recipes_id'])
         obj = Favorite.objects.filter(
-            Q(recipe_id=recipe.id) & Q(user_id=self.request.user.id)).exists()
+            Q(recipe_id=recipe.id) &
+            Q(user_id=self.request.user.id)).exists()
         if recipe is not None and not obj:
             Favorite.objects.bulk_create([
                 Favorite(recipe=recipe, user=self.request.user)
@@ -318,7 +327,6 @@ class RecipeViewSet(ModelViewSet):
             for j in queryset:
                 queryset1.append(j.recipe)
             item = list(set(queryset1))
-            # item = Recipe.objects.filter(tags_id=self.request.GET['tags'])
         elif 'author' in self.request.GET:
             item = Recipe.objects.filter(author_id=self.request.GET['author'])
         elif 'is_in_shopping_cart' in self.request.GET:
@@ -363,7 +371,9 @@ class RecipeViewSet(ModelViewSet):
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer = self.get_serializer(instance,
+                                         data=request.data,
+                                         partial=partial)
         serializer.is_valid(raise_exception=True)
         if str(self.request.user) == 'AnonymousUser':
             return Response(status=status.HTTP_401_UNAUTHORIZED)

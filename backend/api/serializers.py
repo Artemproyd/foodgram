@@ -41,7 +41,8 @@ class UserSerializer(serializers.ModelSerializer):
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            return Subscription.objects.filter(user=request.user, subscribed_to=obj).exists()
+            return Subscription.objects.filter(user=request.user,
+                                               subscribed_to=obj).exists()
         return False
 
 
@@ -80,9 +81,13 @@ class IngredientSerializer(serializers.ModelSerializer):
 
 
 class IngredientsInRecipeSerializer(serializers.ModelSerializer):
-    id = SlugRelatedField("id", source="ingredients", queryset=Ingredient.objects.all())
-    name = serializers.SlugRelatedField("name", source="ingredients", queryset=Ingredient.objects.all())
-    measurement_unit = serializers.SlugRelatedField("measurement_unit", source="ingredients", queryset=Ingredient.objects.all())
+    id = SlugRelatedField("id", source="ingredients",
+                          queryset=Ingredient.objects.all())
+    name = serializers.SlugRelatedField("name", source="ingredients",
+                                        queryset=Ingredient.objects.all())
+    measurement_unit = serializers.SlugRelatedField("measurement_unit",
+                                                    source="ingredients",
+                                                    queryset=Ingredient.objects.all())
 
     class Meta:
         model = IngredientsInRecipe
@@ -90,7 +95,8 @@ class IngredientsInRecipeSerializer(serializers.ModelSerializer):
 
 
 class TagsRecipe(serializers.ModelSerializer):
-    id = SlugRelatedField("id", source="ingredients", queryset=Ingredient.objects.all())
+    id = SlugRelatedField("id", source="ingredients",
+                          queryset=Ingredient.objects.all())
 
     class Meta:
         model = TagRecipe
@@ -178,7 +184,8 @@ class RecipeInShoppingCard(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = IngredientsInRecipeSerializer(source='ingredients_recipes', many=True)
+    ingredients = IngredientsInRecipeSerializer(source='ingredients_recipes',
+                                                many=True)
     tags = PrimaryKeyRelatedField(queryset=Tag.objects.all(), many=True)
     image = Base64ImageField(required=False, allow_null=True)
     author = UserSerializer(default=serializers.CurrentUserDefault)
@@ -202,28 +209,37 @@ class RecipeSerializer(serializers.ModelSerializer):
     def tags_update(cls, instance, data):
         old_tags_ids = set(instance.tags.values_list('id', flat=True))
         new_tags_ids = set([a.id for a in data])
-        TagRecipe.objects.filter(recipe_id=instance.id, tag_id__in=old_tags_ids - new_tags_ids).delete()
+        TagRecipe.objects.filter(recipe_id=instance.id,
+                                 tag_id__in=old_tags_ids - new_tags_ids).delete()
         TagRecipe.objects.bulk_create([
-            TagRecipe(recipe_id=instance.id, tag_id=tag_id) for tag_id in new_tags_ids - old_tags_ids
+            TagRecipe(recipe_id=instance.id,
+                      tag_id=tag_id) for tag_id in new_tags_ids - old_tags_ids
         ])
 
     @classmethod
     def update_authors(cls, instance, new_authors):
         old_authors_dict = {ba.ingredients_id: ba for ba in instance.ingredients_recipes.all()}
-        new_authors_dict = {ba['ingredients'].id: ba for ba in new_authors if ba['ingredients'].id not in old_authors_dict}
-        updated_authors_dict = {ba['ingredients'].id: ba for ba in new_authors if ba['ingredients'].id in old_authors_dict}
+        new_authors_dict = {ba['ingredients'].id: ba
+                            for ba in new_authors
+                            if ba['ingredients'].id not in old_authors_dict}
+        updated_authors_dict = {ba['ingredients'].id: ba
+                                for ba in new_authors
+                                if ba['ingredients'].id in old_authors_dict}
         old_authors_set = set(old_authors_dict.keys()) - set(updated_authors_dict.keys())
         updated_authors_dict = dict(filter(
             lambda kv: kv[1]['amount'] != old_authors_dict[kv[0]].amount
-                       and (kv[1]['amount'] is not None or old_authors_dict[kv[0]].amount is not None),
+                       and (kv[1]['amount'] is not
+                            None or old_authors_dict[kv[0]].amount is not None),
             updated_authors_dict.items()
         ))
-        IngredientsInRecipe.objects.filter(recipe_id=instance.id, ingredients_id__in=old_authors_set).delete()
+        IngredientsInRecipe.objects.filter(recipe_id=instance.id,
+                                           ingredients_id__in=old_authors_set).delete()
         IngredientsInRecipe.objects.bulk_create([
             IngredientsInRecipe(recipe_id=instance.id, **ba) for ba in new_authors_dict.values()
         ])
         IngredientsInRecipe.objects.bulk_update([
-            IngredientsInRecipe(id=old_authors_dict[ba['ingredients'].id].id, **ba) for ba in updated_authors_dict.values()
+            IngredientsInRecipe(id=old_authors_dict[ba['ingredients'].id].id,
+                                **ba) for ba in updated_authors_dict.values()
         ], fields=['amount'])
 
     def update_many2us(self, instance, validated_data):
@@ -265,7 +281,8 @@ class RecipeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Рецепт должен иметь хотя бы 1 {str(i)}.")
 
         if self.has_duplicates(many2m['ingredients_recipes']):
-            raise serializers.ValidationError("В рецепте не должно быть повторяющихся ингредиетов.")
+            raise serializers.ValidationError("В рецепте не должно"
+                                              " быть повторяющихся ингредиетов.")
         elif len(many2m['tags']) != len(set(many2m['tags'])):
             raise serializers.ValidationError("В рецепте не должно быть повторяющихся тегов.")
         return basic, many2m

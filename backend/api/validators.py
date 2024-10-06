@@ -1,4 +1,6 @@
 from django.core.validators import RegexValidator
+import re
+from django.core.exceptions import ValidationError
 
 username_validator = RegexValidator(
     regex=r'$',
@@ -6,13 +8,11 @@ username_validator = RegexValidator(
     code='invalid_username'
 )
 
-import re
-from django.core.exceptions import ValidationError
-
 
 def validate_name(value):
     if not re.match(r'^[\w.@+-]+$', value):
-         ValidationError(
-            ('Имя может содержать только буквы и цифры. Специальные символы недопустимы.'),
+        ValidationError(
+            ('Имя может содержать только буквы'
+             ' и цифры. Специальные символы недопустимы.'),
             params={'value': value},
         )

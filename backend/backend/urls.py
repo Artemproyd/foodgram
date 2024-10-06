@@ -9,7 +9,8 @@ from api.models import ShortLink
 def ggg(request, short_link):
     full_url = str(request.build_absolute_uri())
     short_link_obj = get_object_or_404(ShortLink, short_url=short_link)
-    url = full_url.replace(f'/s/{short_link}', f':8000/{short_link_obj.original_url}')
+    url = full_url.replace(f'/s/{short_link}',
+                           f':8000/{short_link_obj.original_url}')
     return redirect(str(url))
 
 
