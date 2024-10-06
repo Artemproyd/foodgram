@@ -85,10 +85,10 @@ class IngredientsInRecipeSerializer(serializers.ModelSerializer):
                           queryset=Ingredient.objects.all())
     name = serializers.SlugRelatedField("name", source="ingredients",
                                         queryset=Ingredient.objects.all())
-    measurement_unit = serializers.SlugRelatedField("measurement_unit",
-                                                    source="ingredients",
-                                                    queryset=
-                                                    Ingredient.objects.all())
+    measurement_unit = serializers.SlugRelatedField(
+        "measurement_unit",
+        source="ingredients",
+        queryset=Ingredient.objects.all())
 
     class Meta:
         model = IngredientsInRecipe
@@ -229,8 +229,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         updated_authors_dict = {ba['ingredients'].id: ba
                                 for ba in new_authors
                                 if ba['ingredients'].id in old_authors_dict}
-        old_authors_set = (set(old_authors_dict.keys()) -
-                           set(updated_authors_dict.keys()))
+        old_authors_set = (set(old_authors_dict.keys())
+                           - set(updated_authors_dict.keys()))
         updated_authors_dict = dict(filter(
             lambda kv: kv[1]['amount'] != old_authors_dict[kv[0]].amount and (
                 kv[1]['amount'] is not
@@ -288,7 +288,8 @@ class RecipeSerializer(serializers.ModelSerializer):
         for i in (many2m.keys()):
             if not many2m[str(i)]:
                 raise serializers.ValidationError(f"Рецепт должен"
-                                                  f" иметь хотя бы 1 {str(i)}.")
+                                                  f" иметь хотя бы "
+                                                  f"1 {str(i)}.")
 
         if self.has_duplicates(many2m['ingredients_recipes']):
             raise serializers.ValidationError("В рецепте не должно"

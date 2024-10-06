@@ -249,8 +249,7 @@ class FavoriteViewSet(ModelViewSet):
         recipe = get_object_or_404(Recipe, id=kwargs['recipes_id'])
         favorite_obj = Favorite.objects.filter(
             recipe=recipe,
-            user=self.request.user
-            ).first()
+            user=self.request.user).first()
         if favorite_obj is None:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         else:
