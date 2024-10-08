@@ -2,11 +2,10 @@ from django.http import HttpResponse
 from djoser.views import UserViewSet
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from models import (Tag, Ingredient, Recipe,
+from .models import (Tag, Ingredient, Recipe,
                     UserRecipe, TagRecipe, Favorite,
                     ShortLink)
 from users.models import User, Subscription
-from permissions import IsRegisteredBy, ReadOnly
 from rest_framework import (pagination, status,
                             viewsets)
 from rest_framework.decorators import action
@@ -14,19 +13,20 @@ from rest_framework.permissions import (
     IsAuthenticated, IsAuthenticatedOrReadOnly,
 )
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet as StdModelViewSet
-from serializers import (AvatarSerializer,
-                         TagSerializer, IngredientSerializer,
-                         RecipeSerializer, ReadSerializer,
-                         RecipeInShoppingCard, SubscribeSerializer,
-                         FavoriteSerializer, ShortLinkSerializer11,
-                         )
-from serializers import UserSerializer
+from .serializers import (AvatarSerializer,
+                          TagSerializer, IngredientSerializer,
+                          RecipeSerializer, ReadRecipeSerializer,
+                          RecipeInShoppingCard, SubscribeSerializer,
+                          FavoriteSerializer, ShortLinkSerializer11,
+                          )
+from .serializers import UserSerializer
+from .constants import MAX_PAGINATION, PAGINATION_SIZE
 
 
 class CustomPagination(pagination.PageNumberPagination):
-    max_page_size = 10
-    page_size = 10
+    max_page_size = MAX_PAGINATION
+    page_size = PAGINATION_SIZE
+    # немного не понял, что тут имелось ввиду
 
     def get_page_size(self, request):
         page_size = request.query_params.get('limit', None)
@@ -38,26 +38,12 @@ class CustomPagination(pagination.PageNumberPagination):
         return self.page_size
 
 
-class ModelViewSet(StdModelViewSet):
-    permission_classes = [IsRegisteredBy | ReadOnly]
-
-    @classmethod
-    def get_url_name(cls):
-        name = getattr(cls, 'queryset', None)
-        name = name.model if name else getattr(cls, 'model', None)
-        if name is None:
-            raise ValueError(
-                "%s cannot be registered automatically, "
-                "define model or queryset attribute for it." % (cls.__name__))
-        return name._meta.verbose_name_plural.replace(' ', '_')
-
-    def get_queryset(self):
-        return self.model._default_manager.all()
-
-
-class UserViewSet3(UserViewSet):
+class MyUserViewSet(UserViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+    def get_queryset(self):
+        return User.objects.all()
 
     @action(
         detail=False,
@@ -94,7 +80,7 @@ class UserViewSet3(UserViewSet):
             user = request.user
             full_url = request.build_absolute_uri()
             if 'me' in str(full_url) and str(user) == 'AnonymousUser':
-                return Response(status=401)
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
 
             serializer = UserSerializer(user)
             return Response(serializer.data)
@@ -223,7 +209,8 @@ class ShoppingCartViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class FavoriteViewSet(ModelViewSet):
+class FavoriteViewSet(viewsets.ModelViewSet):
+    queryset = Favorite.objects.all()
     serializer_class = RecipeInShoppingCard
     permission_classes = [IsAuthenticated, ]
 
@@ -257,7 +244,8 @@ class FavoriteViewSet(ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class SubscribeViewSet(ModelViewSet):
+class SubscribeViewSet(viewsets.ModelViewSet):
+    queryset = Subscription.objects.all()
     serializer_class = SubscribeSerializer
     permission_classes = [IsAuthenticated, ]
 
@@ -277,6 +265,8 @@ class SubscribeViewSet(ModelViewSet):
             )
             user_serializer = UserSerializer(user).data
             user_serializer['is_subscribed'] = True
+            if 'recipes_limit' in self.request.GET:
+                user_serializer['limit'] = self.request.GET['recipes_limit']
             serializer = SubscribeSerializer(user_serializer).data
             return Response(serializer, status=status.HTTP_201_CREATED)
         else:
@@ -298,7 +288,8 @@ class SubscribeViewSet(ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class RecipeViewSet(ModelViewSet):
+class RecipeViewSet(viewsets.ModelViewSet):
+    queryset = Recipe.objects.all()
     model = Recipe
     pagination_class = CustomPagination
     permission_classes = [IsAuthenticatedOrReadOnly, ]
@@ -345,7 +336,7 @@ class RecipeViewSet(ModelViewSet):
 
     def get_serializer_class(self, action=None):
         if (action or self.action) in ('retrieve', 'list'):
-            return ReadSerializer
+            return ReadRecipeSerializer
         return RecipeSerializer
 
     def create(self, *args, **kwargs):
@@ -380,7 +371,7 @@ class RecipeViewSet(ModelViewSet):
         if instance.author != self.request.user:
             return Response(status=status.HTTP_403_FORBIDDEN)
         self.perform_update(serializer)
-        return Response(ReadSerializer(instance).data)
+        return Response(ReadRecipeSerializer(instance).data)
 
     def destroy(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['pk'])
@@ -399,7 +390,7 @@ class RecipeViewSet(ModelViewSet):
         ur_objects = UserRecipe.objects.filter(
             user=self.request.user)
         for i in ur_objects:
-            ing = ReadSerializer(i.recipe).data['ingredients']
+            ing = ReadRecipeSerializer(i.recipe).data['ingredients']
             for j in ing:
                 if j['id'] not in shopping_card:
                     shopping_card[j['id']] = {

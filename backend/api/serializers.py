@@ -1,25 +1,13 @@
 from django.db.models import Q
-from django.core.files.base import ContentFile
-import base64
 from rest_framework.relations import SlugRelatedField, PrimaryKeyRelatedField
 from rest_framework.serializers import CharField
 from rest_framework import serializers
-from models import (Favorite, Ingredient, IngredientsInRecipe,
-                    Recipe, ShortLink, TagRecipe,
-                    Tag, UserRecipe,
-                    )
+from .models import (Favorite, Ingredient, IngredientsInRecipe,
+                     Recipe, ShortLink, TagRecipe,
+                     Tag, UserRecipe,
+                     )
 from users.models import User, Subscription
-
-
-class Base64ImageField(serializers.ImageField):
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-
-            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
-
-        return super().to_internal_value(data)
+from drf_extra_fields.fields import Base64ImageField
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -86,7 +74,7 @@ class IngredientsInRecipeSerializer(serializers.ModelSerializer):
     name = serializers.SlugRelatedField("name", source="ingredients",
                                         queryset=Ingredient.objects.all())
     measurement_unit = serializers.SlugRelatedField(
-        "measurement_unit",
+        'measurement_unit',
         source="ingredients",
         queryset=Ingredient.objects.all())
 
@@ -115,8 +103,12 @@ class FavoriteSerializer(serializers.Serializer):
         fields = ['id', 'name', 'image', 'cooking_time']
 
 
-class ReadSerializer(serializers.Serializer):
-    id = PrimaryKeyRelatedField(queryset=Recipe.objects.all())
+# Ну если дело было только в названии, то я переделал
+# А если вопрос зачем он в целом нужен, то это для
+# того, чтобы красиво рецепт выдавался. Ну если очень кратко
+# то RecipeSerializer для создание, а этот для выдачи
+class ReadRecipeSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
     tags = TagSerializer(many=True)
     author = UserSerializer(default=serializers.CurrentUserDefault)
     ingredients = IngredientsInRecipeSerializer(source='ingredients_recipes',
@@ -124,7 +116,7 @@ class ReadSerializer(serializers.Serializer):
     is_in_shopping_cart = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
     name = serializers.CharField()
-    image = serializers.CharField()
+    image = Base64ImageField(required=False, allow_null=True)
     text = CharField()
     cooking_time = serializers.IntegerField()
 
@@ -144,7 +136,7 @@ class ReadSerializer(serializers.Serializer):
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('context', {}).get('request', None)
-        super(ReadSerializer, self).__init__(*args, **kwargs)
+        super(ReadRecipeSerializer, self).__init__(*args, **kwargs)
 
     def get_is_in_shopping_cart(self, validate_data):
         try:
@@ -233,8 +225,8 @@ class RecipeSerializer(serializers.ModelSerializer):
                            - set(updated_authors_dict.keys()))
         updated_authors_dict = dict(filter(
             lambda kv: kv[1]['amount'] != old_authors_dict[kv[0]].amount and (
-                kv[1]['amount'] is not
-                None or old_authors_dict[kv[0]].amount is not None),
+                  kv[1]['amount'] is not
+                  None or old_authors_dict[kv[0]].amount is not None),
             updated_authors_dict.items()
         ))
         IngredientsInRecipe.objects.filter(recipe_id=instance.id,
@@ -290,6 +282,10 @@ class RecipeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Рецепт должен"
                                                   f" иметь хотя бы "
                                                   f"1 {str(i)}.")
+        if validated_data['image'] is None:
+            raise serializers.ValidationError(f"Рецепт должен"
+                                              f" содержать"
+                                              f" фотографию.")
 
         if self.has_duplicates(many2m['ingredients_recipes']):
             raise serializers.ValidationError("В рецепте не должно"
@@ -355,7 +351,10 @@ class SubscribeSerializer(serializers.Serializer):
 
     def get_recipes_count(self, value):
         items = Recipe.objects.filter(author_id=value['id'])
-        return len(items)
+        if 'limit' in value:
+            return min(len(items), int(value['limit']))
+        else:
+            return len(items)
 
 
 class ShortLinkSerializer(serializers.ModelSerializer):

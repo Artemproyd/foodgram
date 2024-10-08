@@ -2,13 +2,13 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
-from views import (UserViewSet3, IngredientsViewSet,
-                   RecipeViewSet, ShoppingCartViewSet,
-                   FavoriteViewSet, SubscribeViewSet,
-                   ShortLinkViewSet, TagView)
+from .views import (MyUserViewSet, IngredientsViewSet,
+                    RecipeViewSet, ShoppingCartViewSet,
+                    FavoriteViewSet, SubscribeViewSet,
+                    ShortLinkViewSet, TagView)
 
 api_v1 = DefaultRouter()
-api_v1.register('users', UserViewSet3, basename='user')
+api_v1.register('users', MyUserViewSet, basename='user')
 api_v1.register('tags', TagView, basename='Tag')
 api_v1.register('ingredients', IngredientsViewSet, basename='Ingredient')
 api_v1.register('recipes', RecipeViewSet, basename='Ingredient')

@@ -35,17 +35,6 @@ class ReadOnly(BasePermission):
         return request.method in SAFE_METHODS
 
 
-class IsRegisteredBy(BasePermission):
-    def has_object_permission(self, request, view, obj):
-        user_field_name = getattr(view, 'author_field', None)
-        if user_field_name is None:
-            return True
-        path = user_field_name.split('__')
-        for user_field_name in path:
-            obj = getattr(obj, user_field_name)
-        return obj == request.user.id
-
-
 class OwnerOrReadOnly(permissions.BasePermission):
 
     def has_permission(self, request, view):

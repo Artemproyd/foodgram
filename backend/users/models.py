@@ -1,6 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
+from api.validators import validate_name
+from api.constants import REGEX
 
 
 class User(AbstractUser):
@@ -28,8 +30,7 @@ class User(AbstractUser):
         error_messages={
             'unique': 'Данное имя занято',
         },
-        validators=[RegexValidator(regex=r'^[\w.@+-]+$',
-                                   message='Ваше сообщение об ошибке')],
+        validators=[validate_name],
         max_length=150,
     )
 
@@ -65,4 +66,9 @@ class Subscription(models.Model):
                                       on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ('user', 'subscribed_to')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'subscribed_to'],
+                name='unique_subscription',
+            )
+        ]
