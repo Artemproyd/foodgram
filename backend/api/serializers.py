@@ -225,8 +225,8 @@ class RecipeSerializer(serializers.ModelSerializer):
                            - set(updated_authors_dict.keys()))
         updated_authors_dict = dict(filter(
             lambda kv: kv[1]['amount'] != old_authors_dict[kv[0]].amount and (
-                  kv[1]['amount'] is not
-                  None or old_authors_dict[kv[0]].amount is not None),
+                  kv[1]['amount'] is not None or
+                  old_authors_dict[kv[0]].amount is not None),
             updated_authors_dict.items()
         ))
         IngredientsInRecipe.objects.filter(recipe_id=instance.id,
@@ -283,9 +283,8 @@ class RecipeSerializer(serializers.ModelSerializer):
                                                   f" иметь хотя бы "
                                                   f"1 {str(i)}.")
         if validated_data['image'] is None:
-            raise serializers.ValidationError(f"Рецепт должен"
-                                              f" содержать"
-                                              f" фотографию.")
+            raise serializers.ValidationError("Рецепт должен "
+                                              "содержать фотографию.")
 
         if self.has_duplicates(many2m['ingredients_recipes']):
             raise serializers.ValidationError("В рецепте не должно"

@@ -3,8 +3,8 @@ from djoser.views import UserViewSet
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .models import (Tag, Ingredient, Recipe,
-                    UserRecipe, TagRecipe, Favorite,
-                    ShortLink)
+                     UserRecipe, TagRecipe, Favorite,
+                     ShortLink)
 from users.models import User, Subscription
 from rest_framework import (pagination, status,
                             viewsets)

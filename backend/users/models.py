@@ -1,8 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import RegexValidator
 from api.validators import validate_name
-from api.constants import REGEX
 
 
 class User(AbstractUser):
