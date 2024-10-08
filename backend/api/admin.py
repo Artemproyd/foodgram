@@ -13,7 +13,8 @@ from .models import (Favorite, IngredientsInRecipe,
 class TagInRecipeInlineFormSet(forms.BaseInlineFormSet):
     def clean(self):
         super().clean()
-        if not any(form.cleaned_data for form in self.forms if not form.cleaned_data.get('DELETE', False)):
+        if not any(form.cleaned_data for form in self.forms
+                   if not form.cleaned_data.get('DELETE', False)):
             raise ValidationError("Поле Теги не может быть пустым.")
 
 
@@ -26,7 +27,8 @@ class TagRecipeInline(admin.TabularInline):
 class IngredientsInRecipeInlineFormSet(forms.BaseInlineFormSet):
     def clean(self):
         super().clean()
-        if not any(form.cleaned_data for form in self.forms if not form.cleaned_data.get('DELETE', False)):
+        if not any(form.cleaned_data for form in self.forms
+                   if not form.cleaned_data.get('DELETE', False)):
             raise ValidationError("Поле Ингредиенты не может быть пустым.")
 
 
@@ -51,24 +53,26 @@ class RecipeAdmin(admin.ModelAdmin):
 
             ingredients_formset = next(
                 (formset for formset in formsets if
-                 isinstance(formset, BaseInlineFormSet) and
-                 formset.model == Recipe.ingredients.through),
+                 isinstance(formset, BaseInlineFormSet)
+                 and formset.model == Recipe.ingredients.through),
                 None
             )
 
             if ingredients_formset is not None:
                 if not ingredients_formset.is_valid():
-                    raise ValidationError("Поле Ингредиенты не может быть пустым.")
+                    raise ValidationError("Поле Ингредиенты "
+                                          "не может быть пустым.")
 
                 ingredients_in_recipe = ingredients_formset.cleaned_data
                 if not any(data for data in ingredients_in_recipe
                            if data and not data.get('DELETE', False)):
-                    raise ValidationError("Поле Ингредиенты не может быть пустым.")
+                    raise ValidationError("Поле Ингредиенты "
+                                          "не может быть пустым.")
 
             tags_formset = next(
                 (formset for formset in formsets if
-                 isinstance(formset, BaseInlineFormSet) and
-                 formset.model == Recipe.tags.through),
+                 isinstance(formset, BaseInlineFormSet)
+                 and formset.model == Recipe.tags.through),
                 None
             )
 
