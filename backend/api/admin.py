@@ -1,7 +1,8 @@
+from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.forms import BaseInlineFormSet
-from django import forms
+
 from .constants import EXTRA_FIELD
 from .forms import RecipeForm
 from .models import (Favorite, IngredientsInRecipe,
@@ -15,7 +16,7 @@ class TagInRecipeInlineFormSet(forms.BaseInlineFormSet):
         super().clean()
         if not any(form.cleaned_data for form in self.forms
                    if not form.cleaned_data.get('DELETE', False)):
-            raise ValidationError("Поле Теги не может быть пустым.")
+            raise ValidationError('Поле Теги не может быть пустым.')
 
 
 class TagRecipeInline(admin.TabularInline):
@@ -29,7 +30,7 @@ class IngredientsInRecipeInlineFormSet(forms.BaseInlineFormSet):
         super().clean()
         if not any(form.cleaned_data for form in self.forms
                    if not form.cleaned_data.get('DELETE', False)):
-            raise ValidationError("Поле Ингредиенты не может быть пустым.")
+            raise ValidationError('Поле Ингредиенты не может быть пустым.')
 
 
 class IngredientsInRecipeInline(admin.TabularInline):
@@ -60,14 +61,14 @@ class RecipeAdmin(admin.ModelAdmin):
 
             if ingredients_formset is not None:
                 if not ingredients_formset.is_valid():
-                    raise ValidationError("Поле Ингредиенты "
-                                          "не может быть пустым.")
+                    raise ValidationError('Поле Ингредиенты '
+                                          'не может быть пустым.')
 
                 ingredients_in_recipe = ingredients_formset.cleaned_data
                 if not any(data for data in ingredients_in_recipe
                            if data and not data.get('DELETE', False)):
-                    raise ValidationError("Поле Ингредиенты "
-                                          "не может быть пустым.")
+                    raise ValidationError('Поле Ингредиенты '
+                                          'не может быть пустым.')
 
             tags_formset = next(
                 (formset for formset in formsets if
@@ -78,12 +79,12 @@ class RecipeAdmin(admin.ModelAdmin):
 
             if tags_formset is not None:
                 if not tags_formset.is_valid():
-                    raise ValidationError("Поле Теги не может быть пустым.")
+                    raise ValidationError('Поле Теги не может быть пустым.')
 
                 tags_in_recipe = tags_formset.cleaned_data
                 if not any(data for data in tags_in_recipe
                            if data and not data.get('DELETE', False)):
-                    raise ValidationError("Поле Теги не может быть пустым.")
+                    raise ValidationError('Поле Теги не может быть пустым.')
 
         except ValidationError as e:
             form.add_error(None, e)

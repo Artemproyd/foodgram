@@ -25,8 +25,8 @@ SECRET_KEY = os.getenv('SECRET_KEY', '111')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
-
+#ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'rest_framework',
     'rest_framework.authtoken',
+    'django_filters',
     'drf_extra_fields',
     'djoser',
 

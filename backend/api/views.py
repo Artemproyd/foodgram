@@ -1,49 +1,44 @@
-from django.http import HttpResponse
-from djoser.views import UserViewSet
-from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import (Tag, Ingredient, Recipe,
-                     UserRecipe, TagRecipe, Favorite,
-                     ShortLink)
-from users.models import User, Subscription
-from rest_framework import (pagination, status,
+import django_filters
+from django_filters.rest_framework import DjangoFilterBackend
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from djoser.views import UserViewSet
+from rest_framework import (status,
                             viewsets)
 from rest_framework.decorators import action
 from rest_framework.permissions import (
     IsAuthenticated, IsAuthenticatedOrReadOnly,
 )
 from rest_framework.response import Response
+
+from .filter import RecipeFilter, IngredientFilter
+from .models import (Tag, Ingredient, Recipe,
+                     UserRecipe, Favorite,
+                     ShortLink)
 from .serializers import (AvatarSerializer,
                           TagSerializer, IngredientSerializer,
-                          RecipeSerializer, ReadRecipeSerializer,
+                          CreateRecipeSerializer, GetRecipeSerializer,
                           RecipeInShoppingCard, SubscribeSerializer,
                           FavoriteSerializer, ShortLinkSerializer11,
                           )
 from .serializers import UserSerializer
-from .constants import MAX_PAGINATION, PAGINATION_SIZE
-
-
-class CustomPagination(pagination.PageNumberPagination):
-    max_page_size = MAX_PAGINATION
-    page_size = PAGINATION_SIZE
-    # немного не понял, что тут имелось ввиду
-
-    def get_page_size(self, request):
-        page_size = request.query_params.get('limit', None)
-        if page_size is not None:
-            try:
-                return min(int(page_size), self.max_page_size)
-            except ValueError:
-                return self.page_size
-        return self.page_size
+from .pagination import CustomPagination
+from users.models import User, Subscription
 
 
 class MyUserViewSet(UserViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly,]
 
-    def get_queryset(self):
-        return User.objects.all()
+    @action(
+        detail=False,
+        url_path='me',
+        permission_classes=[IsAuthenticated]
+    )
+    def me(self, request):
+        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
 
     @action(
         detail=False,
@@ -63,27 +58,11 @@ class MyUserViewSet(UserViewSet):
             if serializer.is_valid() and request.data != {}:
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
-            else:
-                return Response(serializer.errors,
-                                status=status.HTTP_400_BAD_REQUEST)
-        else:
-            user = request.user
-            user.avatar.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-    def retrieve(self, request, *args, **kwargs):
-        if 'id' in kwargs:
-            user = get_object_or_404(User, id=kwargs['id'])
-            serializer = UserSerializer(user)
-            return Response(serializer.data)
-        else:
-            user = request.user
-            full_url = request.build_absolute_uri()
-            if 'me' in str(full_url) and str(user) == 'AnonymousUser':
-                return Response(status=status.HTTP_401_UNAUTHORIZED)
-
-            serializer = UserSerializer(user)
-            return Response(serializer.data)
+            return Response(serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        user.avatar.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(
         detail=False,
@@ -106,27 +85,17 @@ class MyUserViewSet(UserViewSet):
         return paginator.get_paginated_response(serializer.data)
 
 
-class TagView(viewsets.GenericViewSet):
+class TagView(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
 
-    def get(self, request, *args, **kwargs):
-        if kwargs == {}:
-            tag = Tag.objects.all()
-            serializer = TagSerializer(tag, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            tag = get_object_or_404(Tag, id=kwargs['pk'])
-            serializer = TagSerializer(tag)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def create(self, request, *args, **kwargs):
-        return Response('Forbidden',
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def update(self, request, *args, **kwargs):
-        return Response('Forbidden',
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    def list(self, request, *args, **kwargs):
+        # Ну этот метод нельзя убрать тк, там просится
+        # чтобы теги вернулись в ввиде массива, а там по
+        # дефолту в другом формуте возвращаются
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class ShortLinkViewSet(viewsets.ModelViewSet):
@@ -144,54 +113,44 @@ class ShortLinkViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         base_url = request.build_absolute_uri('/')[:-1]
-        serializer.data[0]['short-link'] = \
-            f'{base_url}:8000/s/{serializer.data[0]["short-link"]}'
-        return Response({"short-link": serializer.data[0]['short-link']})
+        serializer.data[0]['short-link'] = (
+            f'{base_url}:8000/s/'
+            f'{serializer.data[0]["short-link"]}')
+
+        return Response({'short-link': serializer.data[0]['short-link']})
 
 
-class IngredientsViewSet(viewsets.GenericViewSet):
+class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
+    filterset_class = IngredientFilter
 
-    def get(self, request, *args, **kwargs):
-        print(request.GET)
-        if kwargs != {}:
-            ingredient = get_object_or_404(Ingredient, id=kwargs['pk'])
-            serializer = IngredientSerializer(ingredient)
-        elif 'name' in request.GET:
-            ingredient = Ingredient.objects.filter(
-                name__startswith=request.GET['name'])
-            serializer = IngredientSerializer(ingredient, many=True)
-        else:
-            ingredient = Ingredient.objects.all()
-            serializer = IngredientSerializer(ingredient, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def create(self, request, *args, **kwargs):
-        return Response('Forbidden',
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def update(self, request, *args, **kwargs):
-        return Response('Forbidden',
-                        status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    def list(self, request, *args, **kwargs):
+        # Ну этот метод нельзя убрать тк, там просится
+        # чтобы теги вернулись в ввиде массива, а там по
+        # дефолту в другом формате возвращаются
+        filterset = self.filterset_class(request.GET,
+                                         queryset=self.get_queryset())
+        queryset = filterset.qs
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class ShoppingCartViewSet(viewsets.ModelViewSet):
-    serializer_class = RecipeInShoppingCard
     permission_classes = [IsAuthenticated, ]
 
     def create(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['recipes_id'])
-        obj = UserRecipe.objects.filter(
+        shopping_cart_obj = UserRecipe.objects.filter(
             Q(recipe_id=recipe.id) & Q(user_id=self.request.user.id)).exists()
-        if recipe is not None and not obj:
+        if recipe is not None and not shopping_cart_obj:
             UserRecipe.objects.bulk_create([
                 UserRecipe(recipe=recipe, user=self.request.user)
             ])
-            serializer = FavoriteSerializer(recipe)
+            serializer = RecipeInShoppingCard(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
 
     @action(
         detail=False,
@@ -204,9 +163,8 @@ class ShoppingCartViewSet(viewsets.ModelViewSet):
                                                 ).first()
         if recipe_user is None:
             return Response(status=status.HTTP_400_BAD_REQUEST)
-        else:
-            recipe_user.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        recipe_user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class FavoriteViewSet(viewsets.ModelViewSet):
@@ -216,17 +174,16 @@ class FavoriteViewSet(viewsets.ModelViewSet):
 
     def create(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['recipes_id'])
-        obj = Favorite.objects.filter(
+        favorite_obj = Favorite.objects.filter(
             Q(recipe_id=recipe.id)
             & Q(user_id=self.request.user.id)).exists()
-        if recipe is not None and not obj:
+        if recipe is not None and not favorite_obj:
             Favorite.objects.bulk_create([
                 Favorite(recipe=recipe, user=self.request.user)
             ])
             serializer = FavoriteSerializer(recipe)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
 
     @action(
         detail=False,
@@ -239,9 +196,8 @@ class FavoriteViewSet(viewsets.ModelViewSet):
             user=self.request.user).first()
         if favorite_obj is None:
             return Response(status=status.HTTP_400_BAD_REQUEST)
-        else:
-            favorite_obj.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        favorite_obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SubscribeViewSet(viewsets.ModelViewSet):
@@ -255,10 +211,10 @@ class SubscribeViewSet(viewsets.ModelViewSet):
 
     def create(self, *args, **kwargs):
         user = get_object_or_404(User, id=kwargs['user_id'])
-        obj = Subscription.objects.filter(
+        subscribe_obj = Subscription.objects.filter(
             Q(subscribed_to=user)
             & Q(user=self.request.user)).exists()
-        if user is not None and obj is False and user != self.request.user:
+        if subscribe_obj is False and user != self.request.user:
             Subscription.objects.create(
                 subscribed_to=user,
                 user=self.request.user
@@ -269,8 +225,7 @@ class SubscribeViewSet(viewsets.ModelViewSet):
                 user_serializer['limit'] = self.request.GET['recipes_limit']
             serializer = SubscribeSerializer(user_serializer).data
             return Response(serializer, status=status.HTTP_201_CREATED)
-        else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
 
     @action(
         detail=False,
@@ -283,9 +238,8 @@ class SubscribeViewSet(viewsets.ModelViewSet):
                                                     ).first()
         if subscribe_obj is None:
             return Response(status=status.HTTP_400_BAD_REQUEST)
-        else:
-            subscribe_obj.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+        subscribe_obj.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -293,60 +247,27 @@ class RecipeViewSet(viewsets.ModelViewSet):
     model = Recipe
     pagination_class = CustomPagination
     permission_classes = [IsAuthenticatedOrReadOnly, ]
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = RecipeFilter
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
 
-    def get_queryset(self):
-        item = []
-        if 'pk' in self.kwargs:
-            item = Recipe.objects.filter(id=int(self.kwargs['pk']))
-        elif 'tags' in self.request.GET:
-            tags_name = self.request.GET.getlist('tags')
-            tags_id = []
-            for tag in tags_name:
-                tags_id.append(Tag.objects.filter(slug=str(tag)).first())
-            print(tags_id)
-            query = Q()
-            for tag in tags_id:
-                query |= Q(tag=tag)
-
-            queryset = TagRecipe.objects.filter(query)
-            queryset1 = []
-            for j in queryset:
-                queryset1.append(j.recipe)
-            item = list(set(queryset1))
-        elif 'author' in self.request.GET:
-            item = Recipe.objects.filter(author_id=self.request.GET['author'])
-        elif 'is_in_shopping_cart' in self.request.GET:
-            if str(self.request.user) != 'AnonymousUser':
-                queryset = UserRecipe.objects.filter(user=self.request.user)
-                for i in queryset:
-                    item.append(i.recipe)
-        elif 'is_favorited' in self.request.GET:
-            if str(self.request.user) != 'AnonymousUser':
-                queryset = UserRecipe.objects.filter(user=self.request.user)
-                for i in queryset:
-                    item.append(i.recipe)
-        else:
-            item = Recipe.objects.all()
-        return item
-
     def get_serializer_class(self, action=None):
         if (action or self.action) in ('retrieve', 'list'):
-            return ReadRecipeSerializer
-        return RecipeSerializer
+            return GetRecipeSerializer
+        return CreateRecipeSerializer
 
     def create(self, *args, **kwargs):
-        serializer = RecipeSerializer(
+        serializer = CreateRecipeSerializer(
             data=self.request.data,
             partial=True
         )
         if serializer.is_valid():
             object1 = serializer.save(author=self.request.user)
-            serializer_class = self.get_serializer_class(action="retrieve")
+            serializer_class = self.get_serializer_class(action='retrieve')
             serializer_data = serializer_class(object1).data
             ShortLink.objects.create(
                 recipe=object1,
@@ -371,7 +292,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if instance.author != self.request.user:
             return Response(status=status.HTTP_403_FORBIDDEN)
         self.perform_update(serializer)
-        return Response(ReadRecipeSerializer(instance).data)
+        return Response(GetRecipeSerializer(instance).data)
 
     def destroy(self, *args, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['pk'])
@@ -390,7 +311,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ur_objects = UserRecipe.objects.filter(
             user=self.request.user)
         for i in ur_objects:
-            ing = ReadRecipeSerializer(i.recipe).data['ingredients']
+            ing = GetRecipeSerializer(i.recipe).data['ingredients']
             for j in ing:
                 if j['id'] not in shopping_card:
                     shopping_card[j['id']] = {

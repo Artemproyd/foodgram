@@ -1,12 +1,14 @@
-from .constants import (MAX_LENGTH_DEFAULT,
-                        MAX_LENGTH_TEN,
-                        MAX_LENGTH_EIGHT,
-                        MIN_VALIDATE,)
 from django.core.validators import MinValueValidator
 from django.db import models
 import random
 import string
+
+from .constants import (MAX_LENGTH_DEFAULT,
+                        MAX_LENGTH_TEN,
+                        MAX_LENGTH_EIGHT,
+                        MIN_VALIDATE,)
 from users.models import User
+
 
 
 class Tag(models.Model):
@@ -105,7 +107,7 @@ class IngredientsInRecipe(models.Model):
     ingredients = models.ForeignKey(
         Ingredient,
         verbose_name='Название',
-        related_name="ingredients_recipes",
+        related_name='ingredients_recipes',
         on_delete=models.CASCADE,
     )
 
@@ -164,7 +166,7 @@ class UserRecipe(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username} - {self.recipe.name}"
+        return f'{self.user.username} - {self.recipe.name}'
 
 
 class Favorite(models.Model):
@@ -180,7 +182,7 @@ class Favorite(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.username} - {self.recipe.name}"
+        return f'{self.user.username} - {self.recipe.name}'
 
 
 class ShortLink(models.Model):
