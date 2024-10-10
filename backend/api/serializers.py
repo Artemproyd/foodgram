@@ -67,7 +67,8 @@ class IngredientSerializer(serializers.ModelSerializer):
 class IngredientsInRecipeSerializer(serializers.ModelSerializer):
     id = SlugRelatedField('id', source='ingredients',
                           queryset=Ingredient.objects.all())
-    name = serializers.SlugRelatedField('name', source='ingredients',
+    name = serializers.SlugRelatedField('name',
+                                        source='ingredients',
                                         queryset=Ingredient.objects.all())
     measurement_unit = serializers.SlugRelatedField(
         'measurement_unit',
@@ -105,8 +106,9 @@ class GetRecipeSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     tags = TagSerializer(many=True)
     author = UserSerializer(default=serializers.CurrentUserDefault)
-    ingredients = IngredientsInRecipeSerializer(source='ingredients_recipes',
-                                                many=True)
+    ingredients = IngredientsInRecipeSerializer(
+        source='ingredients_recipes',
+        many=True)
     is_in_shopping_cart = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
     name = serializers.CharField()
@@ -192,56 +194,35 @@ class CreateRecipeSerializer(serializers.ModelSerializer):
         ]
 
     @classmethod
+    def create_tags(cls, recipe_id, tags):
+        TagRecipe.objects.bulk_create([
+            TagRecipe(recipe_id=recipe_id, tag_id=tag.id)
+            for tag in tags
+        ])
+
+    @classmethod
     def tags_update(cls, instance, data):
         old_tags_ids = set(instance.tags.values_list('id', flat=True))
         new_tags_ids = set([a.id for a in data])
         TagRecipe.objects.filter(recipe_id=instance.id,
                                  tag_id__in=old_tags_ids - new_tags_ids
                                  ).delete()
-        TagRecipe.objects.bulk_create([
-            TagRecipe(recipe_id=instance.id,
-                      tag_id=tag_id) for tag_id in new_tags_ids - old_tags_ids
+        cls.create_tags(
+            instance.id,
+            [tag for tag in data if tag.id in new_tags_ids - old_tags_ids])
+
+    @classmethod
+    def create_ingredients(cls, recipe_id, ingredients):
+        ingredients_dict = {ba['ingredients'].id: ba for ba in ingredients}
+        IngredientsInRecipe.objects.bulk_create([
+            IngredientsInRecipe(recipe_id=recipe_id, **ba)
+            for ba in ingredients_dict.values()
         ])
 
     @classmethod
     def update_ingredients(cls, instance, new_ingredients):
         IngredientsInRecipe.objects.filter(recipe_id=instance.id).delete()
-        new_ingredients_dict = {ba['ingredients'].id: ba
-                                for ba in new_ingredients}
-        IngredientsInRecipe.objects.bulk_create([
-            IngredientsInRecipe(recipe_id=instance.id, **ba)
-            for ba in new_ingredients_dict.values()
-        ])
-
-    # @classmethod
-    # def update_ingredients(cls, instance, new_ingredients):
-    #     old_ingredients_dict = {ba.ingredients_id: ba
-    #                             for ba in instance.ingredients_recipes.all()}
-    #     new_ingredients_dict = {ba['ingredients'].id: ba
-    #                             for ba in new_ingredients
-    #                             if ba['ingredients'].id not in old_ingredients_dict}
-    #     updated_ingredients_dict = {ba['ingredients'].id: ba
-    #                                 for ba in new_ingredients
-    #                                 if ba['ingredients'].id in old_ingredients_dict}
-    #     old_ingredients_set = (set(old_ingredients_dict.keys())
-    #                            - set(updated_ingredients_dict.keys()))
-    #     updated_ingredients_dict = dict(filter(
-    #         lambda kv: kv[1]['amount'] != old_ingredients_dict[kv[0]].amount and (
-    #               kv[1]['amount'] is not None
-    #               or old_ingredients_dict[kv[0]].amount is not None),
-    #         updated_ingredients_dict.items()
-    #     ))
-    #     IngredientsInRecipe.objects.filter(recipe_id=instance.id,
-    #                                        ingredients_id__in=old_ingredients_set
-    #                                        ).delete()
-    #     IngredientsInRecipe.objects.bulk_create([
-    #         IngredientsInRecipe(recipe_id=instance.id, **ba)
-    #         for ba in new_ingredients_dict.values()
-    #     ])
-    #     IngredientsInRecipe.objects.bulk_update([
-    #         IngredientsInRecipe(id=old_ingredients_dict[ba['ingredients'].id].id,
-    #                             **ba) for ba in updated_ingredients_dict.values()
-    #     ], fields=['amount'])
+        cls.create_ingredients(instance.id, new_ingredients)
 
     def update_many2us(self, instance, validated_data):
         for field, updater_name in self.MANY_FIELDS.items():
@@ -281,7 +262,7 @@ class CreateRecipeSerializer(serializers.ModelSerializer):
         seen = set()
         bool_dublicate = any(tuple(od.items()) in seen
                              or seen.add(tuple(od.items()))
-            for od in many2m['ingredients_recipes'])
+                             for od in many2m['ingredients_recipes'])
         if bool_dublicate:
             raise serializers.ValidationError('В рецепте не должно'
                                               ' быть повторяющихся'
@@ -335,7 +316,7 @@ class SubscribeSerializer(serializers.Serializer):
                   'email',
                   'avatar',
                   'recipes_count',
-                  'recipes',]
+                  'recipes', ]
 
     def get_recipes(self, value):
         if 'limit' in value:
@@ -354,13 +335,13 @@ class SubscribeSerializer(serializers.Serializer):
             return len(items)
 
 
-class ShortLinkSerializer(serializers.ModelSerializer):
+class FullShortLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShortLink
         fields = ['id', 'original_url', 'short_url']
 
 
-class ShortLinkSerializer11(serializers.ModelSerializer):
+class ShortLinkSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShortLink

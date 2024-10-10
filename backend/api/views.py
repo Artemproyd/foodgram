@@ -20,7 +20,7 @@ from .serializers import (AvatarSerializer,
                           TagSerializer, IngredientSerializer,
                           CreateRecipeSerializer, GetRecipeSerializer,
                           RecipeInShoppingCard, SubscribeSerializer,
-                          FavoriteSerializer, ShortLinkSerializer11,
+                          FavoriteSerializer, ShortLinkSerializer,
                           )
 from .serializers import UserSerializer
 from .pagination import CustomPagination
@@ -30,7 +30,7 @@ from users.models import User, Subscription
 class MyUserViewSet(UserViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly,]
+    permission_classes = [IsAuthenticatedOrReadOnly, ]
 
     @action(
         detail=False,
@@ -38,7 +38,8 @@ class MyUserViewSet(UserViewSet):
         permission_classes=[IsAuthenticated]
     )
     def me(self, request):
-        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+        return Response(UserSerializer(request.user).data,
+                        status=status.HTTP_200_OK)
 
     @action(
         detail=False,
@@ -99,7 +100,7 @@ class TagView(viewsets.ReadOnlyModelViewSet):
 
 
 class ShortLinkViewSet(viewsets.ModelViewSet):
-    serializer_class = ShortLinkSerializer11
+    serializer_class = ShortLinkSerializer
 
     def get_queryset(self):
         recipe_id = self.kwargs.get('recipes_id')
@@ -275,7 +276,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
             return Response(serializer_data,
                             status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors,
+                        status=status.HTTP_400_BAD_REQUEST)
 
     def perform_update(self, serializer):
         self.object = serializer.save(author=self.request.user)
