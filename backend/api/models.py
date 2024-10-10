@@ -10,7 +10,6 @@ from .constants import (MAX_LENGTH_DEFAULT,
 from users.models import User
 
 
-
 class Tag(models.Model):
     name = models.CharField(max_length=MAX_LENGTH_DEFAULT)
     slug = models.SlugField(unique=True)
