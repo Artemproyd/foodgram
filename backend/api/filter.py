@@ -1,4 +1,3 @@
-from django.contrib.auth.models import AnonymousUser
 import django_filters
 
 from .models import Ingredient, Recipe
@@ -19,16 +18,14 @@ class RecipeFilter(django_filters.FilterSet):
                   'tags']
 
     def filter_is_in_shopping_cart(self, queryset, name, value):
-        user = self.request.user
-        if value == 1 and not isinstance(user, AnonymousUser):
-            return queryset.filter(userrecipe__user=user).distinct()
-        return queryset.none()
+        if value and self.request.user.is_authenticated:
+            return queryset.filter(userrecipe__user=self.request.user)
+        return queryset
 
     def filter_is_favorited(self, queryset, name, value):
-        user = self.request.user
-        if value == 1 and not isinstance(user, AnonymousUser):
-            return queryset.filter(favorite__user=user).distinct()
-        return queryset.none()
+        if value and self.request.user.is_authenticated:
+            return queryset.filter(userrecipe__user=self.request.user)
+        return queryset
 
     def filter_tags(self, queryset, name, value):
         tags = self.request.query_params.getlist('tags')

@@ -26,7 +26,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', '111')
 DEBUG = True
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
-
+# ALLOWED_HOSTS = '*'
 # Application definition
 
 INSTALLED_APPS = [

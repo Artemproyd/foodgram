@@ -18,12 +18,13 @@ from .models import (Tag, Ingredient, Recipe,
                      ShortLink)
 from .serializers import (AvatarSerializer,
                           TagSerializer, IngredientSerializer,
-                          CreateRecipeSerializer, GetRecipeSerializer,
+                          CreateRecipeSerializer,
                           RecipeInShoppingCard, SubscribeSerializer,
                           FavoriteSerializer, ShortLinkSerializer,
                           )
 from .serializers import UserSerializer
-from .pagination import CustomPagination
+from .pagination import CustomPagination, NoPagination
+from .permissions import OwnerOrReadOnly
 from users.models import User, Subscription
 
 
@@ -89,14 +90,7 @@ class MyUserViewSet(UserViewSet):
 class TagView(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-
-    def list(self, request, *args, **kwargs):
-        # Ну этот метод нельзя убрать тк, там просится
-        # чтобы теги вернулись в ввиде массива, а там по
-        # дефолту в другом формуте возвращаются
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+    pagination_class = NoPagination
 
 
 class ShortLinkViewSet(viewsets.ModelViewSet):
@@ -126,16 +120,7 @@ class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = IngredientSerializer
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
     filterset_class = IngredientFilter
-
-    def list(self, request, *args, **kwargs):
-        # Ну этот метод нельзя убрать тк, там просится
-        # чтобы теги вернулись в ввиде массива, а там по
-        # дефолту в другом формате возвращаются
-        filterset = self.filterset_class(request.GET,
-                                         queryset=self.get_queryset())
-        queryset = filterset.qs
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+    pagination_class = NoPagination
 
 
 class ShoppingCartViewSet(viewsets.ModelViewSet):
@@ -246,83 +231,35 @@ class SubscribeViewSet(viewsets.ModelViewSet):
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     model = Recipe
+    serializer_class = CreateRecipeSerializer
     pagination_class = CustomPagination
-    permission_classes = [IsAuthenticatedOrReadOnly, ]
+    permission_classes = [IsAuthenticatedOrReadOnly, OwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
     filterset_class = RecipeFilter
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
-
-    def get_serializer_class(self, action=None):
-        if (action or self.action) in ('retrieve', 'list'):
-            return GetRecipeSerializer
-        return CreateRecipeSerializer
-
-    def create(self, *args, **kwargs):
-        serializer = CreateRecipeSerializer(
-            data=self.request.data,
-            partial=True
-        )
-        if serializer.is_valid():
-            object1 = serializer.save(author=self.request.user)
-            serializer_class = self.get_serializer_class(action='retrieve')
-            serializer_data = serializer_class(object1).data
-            ShortLink.objects.create(
-                recipe=object1,
-                original_url=f'recipes/{serializer_data["id"]}',
-            )
-            return Response(serializer_data,
-                            status=status.HTTP_201_CREATED)
-        return Response(serializer.errors,
-                        status=status.HTTP_400_BAD_REQUEST)
-
-    def perform_update(self, serializer):
-        self.object = serializer.save(author=self.request.user)
-
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        serializer = self.get_serializer(instance,
-                                         data=request.data,
-                                         partial=partial)
-        serializer.is_valid(raise_exception=True)
-        if str(self.request.user) == 'AnonymousUser':
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
-        if instance.author != self.request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        self.perform_update(serializer)
-        return Response(GetRecipeSerializer(instance).data)
-
-    def destroy(self, *args, **kwargs):
-        recipe = get_object_or_404(Recipe, id=kwargs['pk'])
-        if recipe.author != self.request.user:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        recipe.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def get_serializer(self, *args, **kwargs):
+        kwargs['user'] = self.request.user
+        return super().get_serializer(*args, **kwargs)
 
     @action(
         detail=False,
         url_path='download_shopping_cart',
-        permission_classes=[IsAuthenticated, ]
     )
     def dowload(self, *args, **kwargs):
         shopping_card = {}
         ur_objects = UserRecipe.objects.filter(
             user=self.request.user)
-        for i in ur_objects:
-            ing = GetRecipeSerializer(i.recipe).data['ingredients']
-            for j in ing:
-                if j['id'] not in shopping_card:
-                    shopping_card[j['id']] = {
-                        'name': j['name'],
-                        'measurement_unit': j['measurement_unit'],
-                        'amount': j['amount'],
+        for obj in ur_objects:
+            ingredients = self.get_serializer(obj.recipe).data['ingredients']
+            for ing in ingredients:
+                if ing['id'] not in shopping_card:
+                    shopping_card[ing['id']] = {
+                        'name': ing['name'],
+                        'measurement_unit': ing['measurement_unit'],
+                        'amount': ing['amount'],
                     }
                 else:
-                    shopping_card[j['id']]['amount'] += j['amount']
+                    shopping_card[ing['id']]['amount'] += ing['amount']
         content = '\n'.join(f'{key}: {value}'
                             for key, value in shopping_card.items())
         response = HttpResponse(content, content_type='text/plain')
