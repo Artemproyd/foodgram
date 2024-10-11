@@ -75,6 +75,7 @@ class IngredientsInRecipeSerializer(serializers.ModelSerializer):
         model = IngredientsInRecipe
         fields = ['id', 'name', 'measurement_unit', 'amount']
 
+
 class TagsRecipe(serializers.ModelSerializer):
     id = serializers.PrimaryKeyRelatedField(source='tags',
                                             queryset=Tag.objects.all())
@@ -148,7 +149,8 @@ class CreateRecipeSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         # Умоляю не бей. Я не придумал ничего лучше
         representation = super().to_representation(instance)
-        representation['tags'] = TagSerializer(instance.tags.all(), many=True).data
+        representation['tags'] = TagSerializer(instance.tags.all(),
+                                               many=True).data
         return representation
 
     @classmethod
@@ -187,9 +189,8 @@ class CreateRecipeSerializer(serializers.ModelSerializer):
         try:
 
             return UserRecipe.objects.filter(
-                    Q(recipe=validate_data)
-                    & Q(user=self.user)
-                    ).exists()
+                Q(recipe=validate_data) & Q(user=self.user)
+            ).exists()
         except Exception:
             return False
 
