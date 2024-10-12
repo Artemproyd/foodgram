@@ -17,13 +17,14 @@ from .models import (Tag, Ingredient, Recipe,
                      UserRecipe, Favorite,
                      ShortLink)
 from .serializers import (AvatarSerializer,
-                          TagSerializer, IngredientSerializer,
                           CreateRecipeSerializer,
+                          FavoriteSerializer, GetRecipeSerializer,
+                          TagSerializer, IngredientSerializer,
                           RecipeInShoppingCard, SubscribeSerializer,
-                          FavoriteSerializer, ShortLinkSerializer,
+                          ShortLinkSerializer,
                           )
 from .serializers import UserSerializer
-from .pagination import CustomPagination, NoPagination
+from .pagination import CustomPagination
 from .permissions import OwnerOrReadOnly
 from users.models import User, Subscription
 
@@ -90,7 +91,7 @@ class MyUserViewSet(UserViewSet):
 class TagView(viewsets.ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    pagination_class = NoPagination
+    pagination_class = None
 
 
 class ShortLinkViewSet(viewsets.ModelViewSet):
@@ -120,7 +121,7 @@ class IngredientsViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = IngredientSerializer
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
     filterset_class = IngredientFilter
-    pagination_class = NoPagination
+    pagination_class = None
 
 
 class ShoppingCartViewSet(viewsets.ModelViewSet):
@@ -237,9 +238,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = RecipeFilter
 
-    def get_serializer(self, *args, **kwargs):
-        kwargs['user'] = self.request.user
-        return super().get_serializer(*args, **kwargs)
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def get_serializer_class(self, action=None):
+        if (action or self.action) in ('retrieve', 'list'):
+            return GetRecipeSerializer
+        return CreateRecipeSerializer
 
     @action(
         detail=False,
